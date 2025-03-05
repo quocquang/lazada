@@ -44,7 +44,7 @@ def scrape_lazada_products(search_query):
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         url = f"https://www.lazada.vn/catalog/?q={search_query.replace(' ', '+')}&page=1"
         driver.get(url)
-        time.sleep(random.randint(5, 10))  # Giảm thời gian chờ để thử nghiệm nhanh
+        time.sleep(random.randint(20, 30))  # Giảm thời gian chờ để thử nghiệm nhanh
         
         elems = driver.find_elements(By.CSS_SELECTOR, ".RfADt [href]")
         titles = [elem.text for elem in elems]
