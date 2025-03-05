@@ -4,3 +4,4 @@ numpy
 pygwalker
 plotly
 openpyxl
+selenium
