@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
@@ -14,7 +16,7 @@ import random
 def format_vnd(number):
     return f"{number:,.0f} VND".replace(",", ".")
 
-# Cấu hình trang
+# Cấu hình trang Streamlit
 st.set_page_config(page_title="Phân tích đơn hàng Lazada", layout="wide", page_icon="📊")
 
 # CSS tùy chỉnh
@@ -30,24 +32,30 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Hàm cào dữ liệu từ Lazada
+# Hàm cào dữ liệu từ Lazada (đã tối ưu cho Streamlit Cloud)
 def scrape_lazada_products(search_query):
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")  # Chạy không giao diện
+    chrome_options.add_argument("--no-sandbox")  # Cần cho Linux container
+    chrome_options.add_argument("--disable-dev-shm-usage")  # Tránh lỗi bộ nhớ chia sẻ
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")  # Giả lập trình duyệt thật
     try:
-        driver = webdriver.Chrome(options=chrome_options)  # Note: Update this for cloud compatibility (see below)
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         url = f"https://www.lazada.vn/catalog/?q={search_query.replace(' ', '+')}&page=1"
         driver.get(url)
-        time.sleep(random.randint(20, 30))
+        time.sleep(random.randint(20, 30))  # Chờ ngẫu nhiên để tránh bị chặn
         
+        # Lấy tên sản phẩm và link
         elems = driver.find_elements(By.CSS_SELECTOR, ".RfADt [href]")
         titles = [elem.text for elem in elems]
         links = [elem.get_attribute('href') for elem in elems]
         
+        # Lấy giá sản phẩm
         elems_price = driver.find_elements(By.CSS_SELECTOR, ".ooOxS")
         prices = [elem.text.replace("₫", "").replace(".", "").strip() for elem in elems_price]
         prices = [int(price) if price.isdigit() else 0 for price in prices]
         
+        # Lấy số lượng bán
         quantities = []
         for i in range(len(titles)):
             try:
@@ -60,13 +68,14 @@ def scrape_lazada_products(search_query):
         
         driver.quit()
         
+        # Tạo DataFrame
         df = pd.DataFrame({
             "Sản Phẩm": titles,
             "Số tiền bán trên lazada": prices,
             "Số lượng bán": quantities,
             "Link": links
         })
-        return df.head(50)
+        return df.head(50)  # Giới hạn 50 sản phẩm
     except Exception as e:
         st.error(f"Lỗi khi cào dữ liệu: {str(e)}")
         return pd.DataFrame()
@@ -117,7 +126,7 @@ else:
 st.title("📦 Phân tích đơn hàng Lazada")
 st.markdown("---")
 
-# Bộ lọc tổng bên ngoài
+# Bộ lọc tổng
 st.markdown('<div class="filter-section"><h3>Bộ lọc tổng</h3></div>', unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 2, 1])
 with col1:
@@ -158,7 +167,7 @@ def display_metric(label, value, delta=None):
         </div>
     """, unsafe_allow_html=True)
 
-# Giao diện chính (Tab 1)
+# Tab 1: Phân tích chính
 if tab_option == "Phân tích chính" and not df_filtered.empty:
     st.markdown('<p class="tab-header">Phân tích chính</p>', unsafe_allow_html=True)
     
@@ -259,7 +268,7 @@ if tab_option == "Phân tích chính" and not df_filtered.empty:
                 filtered_df.to_excel(buffer, index=False)
                 st.download_button("Tải xuống dữ liệu đã lọc", buffer.getvalue(), "filtered_orders.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# Giao diện phụ (Tab 2)
+# Tab 2: Thống kê chi tiết
 elif tab_option == "Thống kê chi tiết" and not df_filtered.empty:
     st.markdown('<p class="tab-header">Thống kê chi tiết</p>', unsafe_allow_html=True)
     
@@ -329,7 +338,7 @@ elif tab_option == "Thống kê chi tiết" and not df_filtered.empty:
     df_filtered.to_excel(buffer, index=False)
     st.download_button("Tải xuống toàn bộ dữ liệu", buffer.getvalue(), "orders_report.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# Tab dữ liệu cào từ Lazada
+# Tab 3: Dữ liệu cào từ Lazada
 elif tab_option == "Dữ liệu cào từ Lazada":
     st.markdown('<p class="tab-header">Dữ liệu cào từ Lazada</p>', unsafe_allow_html=True)
     
