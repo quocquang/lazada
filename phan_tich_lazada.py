@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
@@ -38,13 +37,16 @@ def scrape_lazada_products(search_query):
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    chrome_options.binary_location = "/usr/bin/chromium"  # Đường dẫn tới Chromium binary
+    
     try:
-        # Dùng webdriver-manager để tự động tải ChromeDriver
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        # Dùng ChromeDriver từ gói chromium
+        service = Service(executable_path="/usr/lib/chromium/chromedriver")
+        driver = webdriver.Chrome(service=service, options=chrome_options)
         url = f"https://www.lazada.vn/catalog/?q={search_query.replace(' ', '+')}&page=1"
         driver.get(url)
-        time.sleep(random.randint(20, 30))  # Giảm thời gian chờ để thử nghiệm nhanh
+        time.sleep(random.randint(5, 10))
         
         elems = driver.find_elements(By.CSS_SELECTOR, ".RfADt [href]")
         titles = [elem.text for elem in elems]
