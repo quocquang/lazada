@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
@@ -30,12 +31,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Hàm cào dữ liệu từ Lazada
+# Hàm cào dữ liệu từ Lazada (sửa lỗi executable_path)
 def scrape_lazada_products(search_query):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     try:
-        driver = webdriver.Chrome(executable_path='D:/Quang/chromedriver-win64/chromedriver.exe', options=chrome_options)
+        # Sử dụng Service thay vì executable_path
+        service = Service(executable_path='D:/Quang/chromedriver-win64/chromedriver.exe')
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        
         url = f"https://www.lazada.vn/catalog/?q={search_query.replace(' ', '+')}&page=1"
         driver.get(url)
         time.sleep(random.randint(5, 10))
@@ -147,7 +151,7 @@ def display_metric(label, value, delta=None):
         if label == "Tổng số đơn hàng" or label == "Tổng số lượng":
             value_str = f"{value:,.0f}".replace(",", ".")
         else:
-            value_str = format_vnd(value)  # Sử dụng hàm thủ công
+            value_str = format_vnd(value)
     else:
         value_str = str(value)
     delta_str = f" ({delta})" if delta else ""
