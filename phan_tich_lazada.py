@@ -41,8 +41,8 @@ def scrape_lazada_products(search_query):
     chrome_options.binary_location = "/usr/bin/chromium"  # Đường dẫn tới Chromium binary
     
     try:
-        # Dùng ChromeDriver từ gói chromium
-        service = Service(executable_path="/usr/lib/chromium/chromedriver")
+        # Dùng ChromeDriver từ đường dẫn đúng trên Debian
+        service = Service(executable_path="/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=chrome_options)
         url = f"https://www.lazada.vn/catalog/?q={search_query.replace(' ', '+')}&page=1"
         driver.get(url)
