@@ -12,11 +12,11 @@ import io
 import numpy as np
 import random
 
-# Hàm định dạng tiền tệ VND thủ công
+# Hàm định dạng tiền tệ VND
 def format_vnd(number):
     return f"{number:,.0f} VND".replace(",", ".")
 
-# Cấu hình trang Streamlit
+# Cấu hình trang
 st.set_page_config(page_title="Phân tích đơn hàng Lazada", layout="wide", page_icon="📊")
 
 # CSS tùy chỉnh
@@ -32,30 +32,28 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Hàm cào dữ liệu từ Lazada (đã tối ưu cho Streamlit Cloud)
+# Hàm cào dữ liệu từ Lazada
 def scrape_lazada_products(search_query):
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Chạy không giao diện
-    chrome_options.add_argument("--no-sandbox")  # Cần cho Linux container
-    chrome_options.add_argument("--disable-dev-shm-usage")  # Tránh lỗi bộ nhớ chia sẻ
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")  # Giả lập trình duyệt thật
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")
     try:
+        # Dùng webdriver-manager để tự động tải ChromeDriver
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         url = f"https://www.lazada.vn/catalog/?q={search_query.replace(' ', '+')}&page=1"
         driver.get(url)
-        time.sleep(random.randint(20, 30))  # Chờ ngẫu nhiên để tránh bị chặn
+        time.sleep(random.randint(5, 10))  # Giảm thời gian chờ để thử nghiệm nhanh
         
-        # Lấy tên sản phẩm và link
         elems = driver.find_elements(By.CSS_SELECTOR, ".RfADt [href]")
         titles = [elem.text for elem in elems]
         links = [elem.get_attribute('href') for elem in elems]
         
-        # Lấy giá sản phẩm
         elems_price = driver.find_elements(By.CSS_SELECTOR, ".ooOxS")
         prices = [elem.text.replace("₫", "").replace(".", "").strip() for elem in elems_price]
         prices = [int(price) if price.isdigit() else 0 for price in prices]
         
-        # Lấy số lượng bán
         quantities = []
         for i in range(len(titles)):
             try:
@@ -68,14 +66,13 @@ def scrape_lazada_products(search_query):
         
         driver.quit()
         
-        # Tạo DataFrame
         df = pd.DataFrame({
             "Sản Phẩm": titles,
             "Số tiền bán trên lazada": prices,
             "Số lượng bán": quantities,
             "Link": links
         })
-        return df.head(50)  # Giới hạn 50 sản phẩm
+        return df.head(50)
     except Exception as e:
         st.error(f"Lỗi khi cào dữ liệu: {str(e)}")
         return pd.DataFrame()
