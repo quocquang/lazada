@@ -4,3 +4,9 @@ plotly
 selenium
 openpyxl
 numpy
+pandas
+pygwalker
+plotly
+openpyxl
+statsmodels
+scikit-learn
