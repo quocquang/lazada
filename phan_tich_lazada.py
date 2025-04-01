@@ -7,12 +7,17 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 import time
 import io
-import locale
 import numpy as np
 import random
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 
-# Đặt định dạng tiền tệ VND
-locale.setlocale(locale.LC_ALL, 'vi_VN.UTF-8')
+# Hàm định dạng tiền tệ tùy chỉnh (thay thế locale)
+def format_currency(value):
+    """Định dạng số thành tiền tệ VND mà không cần locale."""
+    if pd.isna(value) or value == 0:
+        return "0 VND"
+    return f"{value:,.0f} VND".replace(",", ".")
 
 # Cấu hình trang
 st.set_page_config(page_title="Phân tích đơn hàng Lazada", layout="wide", page_icon="📊")
@@ -30,15 +35,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Hàm cào dữ liệu từ Lazada dựa trên mã của bạn
+# Hàm cào dữ liệu từ Lazada (dùng webdriver_manager thay vì đường dẫn cố định)
 def scrape_lazada_products(search_query):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     try:
-        driver = webdriver.Chrome(executable_path='D:/Quang/chromedriver-win64/chromedriver.exe', options=chrome_options)
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         url = f"https://www.lazada.vn/catalog/?q={search_query.replace(' ', '+')}&page=1"
         driver.get(url)
-        time.sleep(random.randint(20, 30))  # Chờ ngẫu nhiên như mã của bạn
+        time.sleep(random.randint(20, 30))  # Chờ ngẫu nhiên
         
         # Cào tên sản phẩm và link
         elems = driver.find_elements(By.CSS_SELECTOR, ".RfADt [href]")
@@ -46,7 +51,7 @@ def scrape_lazada_products(search_query):
         links = [elem.get_attribute('href') for elem in elems]
         
         # Cào giá
-        elems_price = driver.find_elements(By.CSS_SELECTOR, ".ooOxS")  # Class giá dựa trên HTML mẫu trước
+        elems_price = driver.find_elements(By.CSS_SELECTOR, ".ooOxS")
         prices = [elem.text.replace("₫", "").replace(".", "").strip() for elem in elems_price]
         prices = [int(price) if price.isdigit() else 0 for price in prices]
         
@@ -70,7 +75,7 @@ def scrape_lazada_products(search_query):
             "Số lượng bán": quantities,
             "Link": links
         })
-        return df.head(50)  # Giới hạn 5 sản phẩm như trước
+        return df.head(50)  # Giới hạn 50 sản phẩm
         
     except Exception as e:
         st.error(f"Lỗi khi cào dữ liệu: {str(e)}")
@@ -146,13 +151,13 @@ else:
 st.sidebar.header("Điều hướng")
 tab_option = st.sidebar.selectbox("Chọn giao diện", ["Phân tích chính", "Thống kê chi tiết", "Dữ liệu cào từ Lazada"])
 
-# Hàm hiển thị số liệu dạng thẻ
+# Hàm hiển thị số liệu dạng thẻ (sử dụng format_currency thay vì locale)
 def display_metric(label, value, delta=None):
     if isinstance(value, (int, float)):
         if label == "Tổng số đơn hàng" or label == "Tổng số lượng":
             value_str = f"{value:,.0f}".replace(",", ".")
         else:
-            value_str = locale.currency(value, symbol="", grouping=True) + " VND"
+            value_str = format_currency(value)
     else:
         value_str = str(value)
     delta_str = f" ({delta})" if delta else ""
@@ -199,8 +204,8 @@ if tab_option == "Phân tích chính" and not df_filtered.empty:
         }).reset_index()
         st.dataframe(product_summary.style.format({
             "Số lượng": lambda x: f"{x:,.0f}".replace(",", "."),
-            "Tổng số tiền người mua thanh toán": lambda x: locale.currency(x, symbol="", grouping=True) + " VND", 
-            "Tổng số tiền người bán nhận được thanh toán": lambda x: locale.currency(x, symbol="", grouping=True) + " VND"
+            "Tổng số tiền người mua thanh toán": format_currency,
+            "Tổng số tiền người bán nhận được thanh toán": format_currency
         }))
         
         st.markdown('<p class="sub-header">Biểu đồ số lượng sản phẩm</p>', unsafe_allow_html=True)
@@ -217,7 +222,7 @@ if tab_option == "Phân tích chính" and not df_filtered.empty:
         }).reset_index()
         st.dataframe(date_summary.style.format({
             "Số lượng": lambda x: f"{x:,.0f}".replace(",", "."),
-            "Tổng số tiền người mua thanh toán": lambda x: locale.currency(x, symbol="", grouping=True) + " VND"
+            "Tổng số tiền người mua thanh toán": format_currency
         }))
 
         st.markdown('<p class="sub-header">Biểu đồ doanh thu theo ngày</p>', unsafe_allow_html=True)
@@ -250,9 +255,9 @@ if tab_option == "Phân tích chính" and not df_filtered.empty:
                                       (df_filtered["Tổng số tiền người mua thanh toán"] <= max_total)]
             st.dataframe(filtered_df.style.format({
                 "Số lượng": lambda x: f"{x:,.0f}".replace(",", "."),
-                "Số tiền bán trên lazada": lambda x: locale.currency(x, symbol="", grouping=True) + " VND", 
-                "Tổng số tiền người mua thanh toán": lambda x: locale.currency(x, symbol="", grouping=True) + " VND",
-                "Tổng số tiền người bán nhận được thanh toán": lambda x: locale.currency(x, symbol="", grouping=True) + " VND" if "Tổng số tiền người bán nhận được thanh toán" in df_filtered.columns else "N/A"
+                "Số tiền bán trên lazada": format_currency,
+                "Tổng số tiền người mua thanh toán": format_currency,
+                "Tổng số tiền người bán nhận được thanh toán": format_currency if "Tổng số tiền người bán nhận được thanh toán" in df_filtered.columns else "N/A"
             }))
             if not filtered_df.empty:
                 st.markdown('<p class="sub-header">Biểu đồ số lượng sản phẩm đã lọc</p>', unsafe_allow_html=True)
@@ -281,7 +286,7 @@ elif tab_option == "Thống kê chi tiết" and not df_filtered.empty:
     }).reset_index()
     st.dataframe(profit_summary.style.format({
         "Số lượng": lambda x: f"{x:,.0f}".replace(",", "."),
-        "Lợi nhuận": lambda x: locale.currency(x, symbol="", grouping=True) + " VND"
+        "Lợi nhuận": format_currency
     }))
     col1, col2 = st.columns(2)
     with col1:
@@ -316,7 +321,7 @@ elif tab_option == "Thống kê chi tiết" and not df_filtered.empty:
     })
     avg_cost_per_order = sum(available_costs.values()) / len(df_filtered) if len(df_filtered) > 0 else 0
     st.dataframe(cost_summary.style.format({
-        "Tổng chi phí": lambda x: locale.currency(x, symbol="", grouping=True) + " VND"
+        "Tổng chi phí": format_currency
     }))
     col1, col2 = st.columns(2)
     with col1:
@@ -341,7 +346,7 @@ elif tab_option == "Dữ liệu cào từ Lazada":
     if "scraped_df" in st.session_state and not st.session_state.scraped_df.empty:
         st.subheader("Dữ liệu sản phẩm từ Lazada")
         st.dataframe(st.session_state.scraped_df.style.format({
-            "Số tiền bán trên lazada": lambda x: locale.currency(x, symbol="", grouping=True) + " VND",
+            "Số tiền bán trên lazada": format_currency,
             "Số lượng bán": lambda x: f"{int(x):,.0f}".replace(",", ".") if pd.notna(x) else "NaN"
         }))
         
@@ -363,4 +368,4 @@ if df.empty and tab_option != "Dữ liệu cào từ Lazada":
 
 # Footer
 st.markdown("---")
-st.markdown("Được phát triển bởi xAI | Ngày cập nhật: 04/03/2025", unsafe_allow_html=True)
+st.markdown(f"Được phát triển bởi xAI | Ngày cập nhật: {pd.Timestamp.now().strftime('%d/%m/%Y')}", unsafe_allow_html=True)
