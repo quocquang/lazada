@@ -2,5 +2,6 @@ streamlit
 pandas
 plotly
 selenium
-numpy
+webdriver-manager
 openpyxl
+numpy
