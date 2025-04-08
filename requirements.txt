@@ -6,3 +6,4 @@ webdriver-manager
 openpyxl
 numpy
 matplotlib
+scipy
