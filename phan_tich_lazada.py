@@ -265,10 +265,12 @@ with st.sidebar:
                     st.dataframe(df.head())
         except Exception as e:
             st.error(f"❌ Lỗi khi đọc file Excel: {str(e)}")
+            df = pd.DataFrame()  # Đặt lại df nếu lỗi
     else:
         df = pd.DataFrame()
         if "df" in st.session_state:
             st.info("ℹ️ Đã tải dữ liệu từ phiên trước")
+            df = st.session_state.df
         else:
             st.warning("⚠️ Vui lòng tải lên file Excel để bắt đầu phân tích")
     st.header("🔍 Cào dữ liệu Lazada")
@@ -291,17 +293,11 @@ with st.sidebar:
     st.caption(f"© 2025 Lazada Analytics | Phiên bản 2.1")
     st.caption(f"Cập nhật: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-# Sử dụng dữ liệu từ session state
-if "df" in st.session_state:
-    df = st.session_state.df
-else:
-    df = pd.DataFrame()
-
 # Tiêu đề chính
 st.markdown('<h1 style="text-align: center; color: #FF6200; margin-bottom: 20px;">📦 Phân tích đơn hàng Lazada</h1>', unsafe_allow_html=True)
 
 # Bộ lọc tổng quát
-if not df.empty:
+if not df.empty and isinstance(df, pd.DataFrame) and not df.columns.empty:  # Thêm kiểm tra df hợp lệ
     st.markdown('<h2 class="sub-header">🔎 Bộ lọc dữ liệu</h2>', unsafe_allow_html=True)
     with st.container():
         st.markdown('<div class="filter-section animate-fadeIn">', unsafe_allow_html=True)
