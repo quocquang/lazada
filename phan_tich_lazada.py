@@ -265,7 +265,7 @@ with st.sidebar:
                     st.dataframe(df.head())
         except Exception as e:
             st.error(f"❌ Lỗi khi đọc file Excel: {str(e)}")
-            df = pd.DataFrame()  # Đặt lại df nếu lỗi
+            df = pd.DataFrame()
     else:
         df = pd.DataFrame()
         if "df" in st.session_state:
@@ -290,14 +290,14 @@ with st.sidebar:
     st.header("📱 Điều hướng")
     tab_option = st.radio("Chọn giao diện", ["📊 Tổng quan", "📈 Phân tích chi tiết", "🔍 Phân tích sản phẩm", "🌐 Dữ liệu từ Lazada"], captions=["Dashboard chính", "Thống kê sâu", "Phân tích theo sản phẩm", "Kết quả cào từ Lazada"])
     st.markdown("---")
-    st.caption(f"© 2025 Lazada Analytics | Phiên bản 2.1")
+    st.caption(f"© 2025 Lazada Analytics | Phiên bản 2.2")
     st.caption(f"Cập nhật: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 # Tiêu đề chính
 st.markdown('<h1 style="text-align: center; color: #FF6200; margin-bottom: 20px;">📦 Phân tích đơn hàng Lazada</h1>', unsafe_allow_html=True)
 
 # Bộ lọc tổng quát
-if not df.empty and isinstance(df, pd.DataFrame) and not df.columns.empty:  # Thêm kiểm tra df hợp lệ
+if not df.empty and isinstance(df, pd.DataFrame) and not df.columns.empty:
     st.markdown('<h2 class="sub-header">🔎 Bộ lọc dữ liệu</h2>', unsafe_allow_html=True)
     with st.container():
         st.markdown('<div class="filter-section animate-fadeIn">', unsafe_allow_html=True)
@@ -414,6 +414,22 @@ if not df.empty and isinstance(df, pd.DataFrame) and not df.columns.empty:  # Th
             fig_promo = plot_time_series(promo_by_month, "Tháng mua hàng", "Phí khuyến mãi do người bán trả cho lazada", "Xu hướng phí khuyến mãi theo tháng")
             st.plotly_chart(fig_promo, use_container_width=True)
 
+        # Heatmap tương quan giữa các yếu tố tài chính
+        financial_cols = [col for col in ["Tổng số tiền người mua thanh toán", "Lợi nhuận", "Phí vận chuyển", "Phí khuyến mãi do người bán trả cho lazada"] if col in filtered_df.columns]
+        if len(financial_cols) >= 2:
+            corr_matrix = filtered_df[financial_cols].corr()
+            fig_corr = px.imshow(corr_matrix, text_auto=True, aspect="auto", color_continuous_scale=px.colors.sequential.Oranges, 
+                                title="Tương quan giữa các yếu tố tài chính")
+            fig_corr.update_layout(title_x=0.5)
+            st.plotly_chart(fig_corr, use_container_width=True)
+
+        # Biểu đồ phân tán thời gian giao hàng vs lợi nhuận
+        if "Thời gian giao hàng (ngày)" in filtered_df.columns and "Lợi nhuận" in filtered_df.columns:
+            fig_scatter = px.scatter(filtered_df, x="Thời gian giao hàng (ngày)", y="Lợi nhuận", trendline="ols", 
+                                    title="Thời gian giao hàng vs Lợi nhuận", color_discrete_sequence=["#FF6200"])
+            fig_scatter.update_layout(title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_scatter, use_container_width=True)
+
     elif tab_option == "🔍 Phân tích sản phẩm":
         st.markdown('<h1 class="tab-header">Phân tích sản phẩm</h1>', unsafe_allow_html=True)
         
@@ -456,6 +472,31 @@ if not df.empty and isinstance(df, pd.DataFrame) and not df.columns.empty:  # Th
             fig_margin.update_traces(textposition='outside', texttemplate='%{y:.2f}%')
             fig_margin.update_layout(title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_margin, use_container_width=True)
+
+        # Biểu đồ cây doanh thu theo sản phẩm
+        if "Sản Phẩm" in filtered_df.columns and "Tổng số tiền người mua thanh toán" in filtered_df.columns:
+            revenue_by_product = filtered_df.groupby("Sản Phẩm")["Tổng số tiền người mua thanh toán"].sum().reset_index()
+            fig_treemap = px.treemap(revenue_by_product, path=["Sản Phẩm"], values="Tổng số tiền người mua thanh toán", 
+                                    title="Doanh thu theo sản phẩm (Treemap)", color="Tổng số tiền người mua thanh toán", 
+                                    color_continuous_scale=px.colors.sequential.Oranges)
+            fig_treemap.update_layout(title_x=0.5)
+            st.plotly_chart(fig_treemap, use_container_width=True)
+
+        # Biểu đồ Pareto phân tích 80/20 sản phẩm theo số lượng bán
+        if "Sản Phẩm" in filtered_df.columns and "Số lượng" in filtered_df.columns:
+            sales_by_product = filtered_df.groupby("Sản Phẩm")["Số lượng"].sum().sort_values(ascending=False).reset_index()
+            sales_by_product["Cumulative"] = sales_by_product["Số lượng"].cumsum() / sales_by_product["Số lượng"].sum() * 100
+            fig_pareto = go.Figure()
+            fig_pareto.add_trace(go.Bar(x=sales_by_product["Sản Phẩm"], y=sales_by_product["Số lượng"], name="Số lượng", marker_color="#FF6200"))
+            fig_pareto.add_trace(go.Scatter(x=sales_by_product["Sản Phẩm"], y=sales_by_product["Cumulative"], name="Tỷ lệ tích lũy (%)", yaxis="y2", mode="lines", line=dict(color="#D14700")))
+            fig_pareto.update_layout(
+                title="Phân tích Pareto: Số lượng bán theo sản phẩm (80/20)",
+                yaxis_title="Số lượng",
+                yaxis2=dict(title="Tỷ lệ tích lũy (%)", overlaying="y", side="right", range=[0, 100]),
+                title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_pareto, use_container_width=True)
 
     elif tab_option == "🌐 Dữ liệu từ Lazada":
         st.markdown('<h1 class="tab-header">Dữ liệu từ Lazada</h1>', unsafe_allow_html=True)
