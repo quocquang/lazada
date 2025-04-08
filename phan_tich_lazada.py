@@ -13,10 +13,9 @@ import numpy as np
 import random
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
-import calendar
-from datetime import datetime, timedelta
+from datetime import datetime
 import matplotlib.pyplot as plt
-import altair as alt
+from scipy import stats
 import base64
 
 # Hàm định dạng tiền tệ tùy chỉnh
@@ -39,7 +38,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS nâng cao (giữ nguyên như code của bạn)
+# CSS nâng cao
 st.markdown("""
 <style>
     :root {
@@ -84,14 +83,13 @@ st.markdown("""
     a { color: var(--secondary); text-decoration: none; }
     a:hover { color: var(--secondary-light); text-decoration: underline; }
     .footer { text-align: center; margin-top: 40px; padding: 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid #eee; }
-    .custom-progress { height: 10px; border-radius: 5px; margin-top: 5px; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .animate-fadeIn { animation: fadeIn 0.5s ease-in-out; }
     @media (max-width: 768px) { .tab-header { font-size: 24px; } .metric-card { padding: 16px; } .metric-card h2 { font-size: 22px; } }
 </style>
 """, unsafe_allow_html=True)
 
-# Các hàm hỗ trợ (giữ nguyên như code của bạn)
+# Hàm cào dữ liệu từ Lazada
 @st.cache_data(ttl=3600, show_spinner=False)
 def scrape_lazada_products(search_query, max_retries=3):
     if not search_query:
@@ -148,6 +146,7 @@ def scrape_lazada_products(search_query, max_retries=3):
                 st.error(f"Lỗi khi cào dữ liệu sau {max_retries} lần thử: {str(e)}")
                 return pd.DataFrame()
 
+# Hàm hiển thị số liệu dạng thẻ với biểu đồ mini
 def display_metric_with_sparkline(label, value, delta=None, delta_color="normal", chart_data=None, chart_color="#FF6200"):
     if isinstance(value, (int, float)):
         if label.startswith("Tổng số") or "lượng" in label.lower():
@@ -182,6 +181,7 @@ def display_metric_with_sparkline(label, value, delta=None, delta_color="normal"
         </div>
     """, unsafe_allow_html=True)
 
+# Hàm tạo biểu đồ phân phối
 def create_distribution_chart(df, column, title, color_sequence=None):
     if color_sequence is None:
         color_sequence = px.colors.sequential.Oranges
@@ -201,6 +201,7 @@ def create_distribution_chart(df, column, title, color_sequence=None):
     )
     return fig
 
+# Hàm hiển thị biểu đồ thời gian
 def plot_time_series(df, date_col, value_col, title, add_trend=True, color='#FF6200'):
     df_sorted = df.sort_values(by=date_col)
     fig = go.Figure()
@@ -222,7 +223,7 @@ def plot_time_series(df, date_col, value_col, title, add_trend=True, color='#FF6
     )
     return fig
 
-# Sidebar (giữ nguyên nhưng thêm thông tin phiên bản)
+# Sidebar
 with st.sidebar:
     st.image("https://laz-img-cdn.alicdn.com/images/ims-web/TB1T7K2d8Cw3KVjSZFuXXcAOpXa.png", width=150)
     st.title("Lazada Analytics")
@@ -321,13 +322,15 @@ if not df.empty:
                 st.warning("⚠️ Không tìm thấy cột 'Ngày mua hàng' để lọc theo thời gian.")
         with col2:
             if "Sản Phẩm" in df.columns:
-                product_options = ["Tất cả"] + sorted(df["Sản Phẩm"].unique().tolist())
+                product_options = ["Tất cả"] + sorted([str(x) for x in df["Sản Phẩm"].dropna().unique()], key=str.lower)
                 selected_product = st.selectbox("Chọn sản phẩm", product_options, index=0)
                 if selected_product != "Tất cả":
                     filtered_df = filtered_df[filtered_df["Sản Phẩm"] == selected_product]
+            else:
+                st.warning("⚠️ Không tìm thấy cột 'Sản Phẩm' để lọc.")
         with col3:
             if "Trạng thái" in df.columns:
-                status_options = ["Tất cả"] + sorted(df["Trạng thái"].unique().tolist())
+                status_options = ["Tất cả"] + sorted([str(x) for x in df["Trạng thái"].dropna().unique()], key=str.lower)
                 selected_status = st.selectbox("Chọn trạng thái đơn hàng", status_options, index=0)
                 if selected_status != "Tất cả":
                     filtered_df = filtered_df[filtered_df["Trạng thái"] == selected_status]
@@ -350,7 +353,7 @@ if not df.empty:
         if st.button("🔄 Đặt lại bộ lọc", help="Xóa tất cả bộ lọc và trở về dữ liệu ban đầu"):
             filtered_df = df
             st.success("✅ Đã đặt lại bộ lọc!")
-        st.markdown('</ clausdiv>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         st.info(f"📊 Số lượng đơn hàng sau khi lọc: {len(filtered_df):,}")
 
     # Các tab giao diện
@@ -399,6 +402,21 @@ if not df.empty:
             fig_day.update_traces(textposition='outside')
             fig_day.update_layout(title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_day, use_container_width=True)
+        
+        # Tỷ lệ trạng thái đơn hàng
+        if "Trạng thái" in filtered_df.columns:
+            status_counts = filtered_df["Trạng thái"].value_counts().reset_index()
+            status_counts.columns = ["Trạng thái", "Số lượng"]
+            fig_status = px.pie(status_counts, values="Số lượng", names="Trạng thái", title="Tỷ lệ trạng thái đơn hàng",
+                               color_discrete_sequence=px.colors.sequential.Oranges)
+            fig_status.update_layout(title_x=0.5)
+            st.plotly_chart(fig_status, use_container_width=True)
+        
+        # Xu hướng phí khuyến mãi theo tháng
+        if "Phí khuyến mãi do người bán trả cho lazada" in filtered_df.columns and "Tháng mua hàng" in filtered_df.columns:
+            promo_by_month = filtered_df.groupby("Tháng mua hàng")["Phí khuyến mãi do người bán trả cho lazada"].sum().reset_index()
+            fig_promo = plot_time_series(promo_by_month, "Tháng mua hàng", "Phí khuyến mãi do người bán trả cho lazada", "Xu hướng phí khuyến mãi theo tháng")
+            st.plotly_chart(fig_promo, use_container_width=True)
 
     elif tab_option == "🔍 Phân tích sản phẩm":
         st.markdown('<h1 class="tab-header">Phân tích sản phẩm</h1>', unsafe_allow_html=True)
@@ -412,7 +430,7 @@ if not df.empty:
             fig_top.update_layout(title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_top, use_container_width=True)
         
-        # Biểu đồ lợi nhuận theo sản phẩm
+        # Top 10 sản phẩm có lợi nhuận cao nhất
         if "Sản Phẩm" in filtered_df.columns and "Lợi nhuận" in filtered_df.columns:
             profit_by_product = filtered_df.groupby("Sản Phẩm")["Lợi nhuận"].sum().nlargest(10).reset_index()
             fig_profit = px.pie(profit_by_product, values="Lợi nhuận", names="Sản Phẩm", title="Top 10 sản phẩm có lợi nhuận cao nhất",
@@ -424,12 +442,29 @@ if not df.empty:
         if "Sản Phẩm" in filtered_df.columns and "Số tiền bán trên lazada" in filtered_df.columns:
             fig_price_dist = create_distribution_chart(filtered_df, "Số tiền bán trên lazada", "Phân phối giá bán sản phẩm")
             st.plotly_chart(fig_price_dist, use_container_width=True)
+        
+        # Số lượng bán theo sản phẩm qua thời gian
+        if "Sản Phẩm" in filtered_df.columns and "Ngày mua hàng" in filtered_df.columns and "Số lượng" in filtered_df.columns:
+            top_5_products = filtered_df.groupby("Sản Phẩm")["Số lượng"].sum().nlargest(5).index
+            sales_over_time = filtered_df[filtered_df["Sản Phẩm"].isin(top_5_products)].groupby(["Ngày mua hàng", "Sản Phẩm"])["Số lượng"].sum().reset_index()
+            fig_sales_time = px.line(sales_over_time, x="Ngày mua hàng", y="Số lượng", color="Sản Phẩm", title="Số lượng bán của 5 sản phẩm hàng đầu qua thời gian",
+                                    color_discrete_sequence=px.colors.sequential.Oranges)
+            fig_sales_time.update_layout(title_x=0.5)
+            st.plotly_chart(fig_sales_time, use_container_width=True)
+        
+        # Biên lợi nhuận trung bình theo sản phẩm
+        if "Sản Phẩm" in filtered_df.columns and "Biên lợi nhuận (%)" in filtered_df.columns:
+            margin_by_product = filtered_df.groupby("Sản Phẩm")["Biên lợi nhuận (%)"].mean().nlargest(10).reset_index()
+            fig_margin = px.bar(margin_by_product, x="Sản Phẩm", y="Biên lợi nhuận (%)", title="Top 10 sản phẩm có biên lợi nhuận trung bình cao nhất",
+                               color="Biên lợi nhuận (%)", color_continuous_scale=px.colors.sequential.Oranges, text_auto=True)
+            fig_margin.update_traces(textposition='outside', texttemplate='%{y:.2f}%')
+            fig_margin.update_layout(title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_margin, use_container_width=True)
 
     elif tab_option == "🌐 Dữ liệu từ Lazada":
         st.markdown('<h1 class="tab-header">Dữ liệu từ Lazada</h1>', unsafe_allow_html=True)
         if "scraped_df" in st.session_state:
             st.dataframe(st.session_state.scraped_df)
-            # Biểu đồ giá sản phẩm từ Lazada
             if "Số tiền bán trên lazada" in st.session_state.scraped_df.columns:
                 fig_scraped_price = px.box(st.session_state.scraped_df, y="Số tiền bán trên lazada", title="Phân phối giá sản phẩm từ Lazada",
                                           color_discrete_sequence=["#FF6200"])
