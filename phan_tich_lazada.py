@@ -305,7 +305,6 @@ def create_distribution_chart(df, column, title, color_sequence=px.colors.sequen
 def plot_time_series(df, date_col, value_col, title, add_trend=False, color='var(--primary)', y_format_func=None, aggregate_func='sum', y_axis_label=None):
     """Plots time series data with optional trend line."""
     if df is None or date_col not in df.columns or value_col not in df.columns or df.empty or df[date_col].isnull().all() or df[value_col].isnull().all():
-        # st.warning(f"Không đủ dữ liệu để vẽ biểu đồ '{title}'.")
         fig = go.Figure()
         fig.update_layout(title=f"{title} (Không có dữ liệu)", title_x=0.5)
         return fig
@@ -359,30 +358,31 @@ def plot_time_series(df, date_col, value_col, title, add_trend=False, color='var
         except ValueError:
             pass # Ignore trend calculation errors silently
 
-
     yaxis_title = base_name
     yaxis_config = dict(
         title=yaxis_title,
-        showgrid=True, gridwidth=1, gridcolor='#EEEEEE',
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='#EEEEEE',
         title_font={'size': 12, 'color': 'var(--text-light)'}
     )
     if y_format_func == format_currency:
-         yaxis_config['tickformat'] = ',.0f' # Format axis ticks as numbers
-         if not yaxis_title.endswith("(VND)"): yaxis_title += " (VND)" # Add unit if not present
-         yaxis_config['title'] = yaxis_title
+        yaxis_config['tickformat'] = ',.0f' # Format axis ticks as numbers
+        if not yaxis_title.endswith("(VND)"): yaxis_title += " (VND)"
+        yaxis_config['title'] = yaxis_title
     elif y_format_func == format_percent:
-         yaxis_config['ticksuffix'] = '%'
-         if not yaxis_title.endswith("(%)"): yaxis_title += " (%)"
-         yaxis_config['title'] = yaxis_title
-
+        yaxis_config['ticksuffix'] = '%'
+        if not yaxis_title.endswith("(%)"): yaxis_title += " (%)"
+        yaxis_config['title'] = yaxis_title
 
     fig.update_layout(
         title={'text': title, 'y':0.95, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top', 'font': {'size': 18, 'color': 'var(--text-main)'}},
-        xaxis_title="Ngày", yaxis=yaxis_config,
+        xaxis_title="Ngày",
         xaxis_title_font={'size': 12, 'color': 'var(--text-light)'},
-        plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+        yaxis=yaxis_config,  # Consolidated yaxis configuration here
+        plot_bgcolor='rgba(0,0,0,0)', 
+        paper_bgcolor='rgba(0,0,0,0)',
         xaxis=dict(showgrid=False, tickformat='%d-%m-%y'), # Simpler date format, no grid
-        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='#EEEEEE'),
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5), # Move legend below
         margin=dict(l=60, r=30, t=70, b=80) # Adjust margins for legend/titles
