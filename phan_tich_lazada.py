@@ -889,28 +889,28 @@ if tab_option == "📊 Tổng quan":
          else:
              st.info(f"ℹ️ Thiếu dữ liệu '{status_col}'.")
 
-    with dist_col2:
-         day_col = "Ngày trong tuần"
-         if day_col in current_filtered_df.columns and current_filtered_df[day_col].notna().any():
-             day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-             day_map_vn = {'Monday': 'T2', 'Tuesday': 'T3', 'Wednesday': 'T4', 'Thursday': 'T5', 'Friday': 'T6', 'Saturday': 'T7', 'Sunday': 'CN'}
-             # Ensure column is string before mapping
-             day_counts = current_filtered_df[day_col].astype(str).map(day_map_vn).value_counts().reset_index()
-             day_counts.columns = ["day_vn", "Số đơn hàng"]
-             # Map the VN names back to the order for sorting
-             day_counts['order'] = day_counts['day_vn'].map({v: i for i, k in enumerate(day_map_vn.values())})
-             day_counts = day_counts.sort_values('order').drop('order', axis=1)
+   with dist_col2:
+    day_col = "Ngày trong tuần"
+    if day_col in current_filtered_df.columns and current_filtered_df[day_col].notna().any():
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        day_map_vn = {'Monday': 'T2', 'Tuesday': 'T3', 'Wednesday': 'T4', 'Thursday': 'T5', 'Friday': 'T6', 'Saturday': 'T7', 'Sunday': 'CN'}
+        # Map English day names to Vietnamese abbreviations
+        day_counts = current_filtered_df[day_col].map(day_map_vn).value_counts().reset_index()
+        day_counts.columns = ["day_vn", "Số đơn hàng"]
+        # Corrected mapping for sorting
+        order_mapping = {day: idx for idx, day in enumerate(day_map_vn.values())}
+        day_counts['order'] = day_counts['day_vn'].map(order_mapping)
+        day_counts = day_counts.sort_values('order').drop('order', axis=1)
 
-
-             fig_day = px.bar(day_counts, x="day_vn", y="Số đơn hàng", title="Đơn hàng theo ngày trong tuần",
-                              color="Số đơn hàng", color_continuous_scale=px.colors.sequential.Oranges, text_auto='.2s')
-             fig_day.update_traces(textposition='outside')
-             fig_day.update_layout(title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                                   coloraxis_showscale=False, xaxis_title="", yaxis_title="Số đơn hàng",
-                                   title_font_size=18)
-             st.plotly_chart(fig_day, use_container_width=True)
-         else:
-             st.info(f"ℹ️ Thiếu dữ liệu '{day_col}'.")
+        fig_day = px.bar(day_counts, x="day_vn", y="Số đơn hàng", title="Đơn hàng theo ngày trong tuần",
+                         color="Số đơn hàng", color_continuous_scale=px.colors.sequential.Oranges, text_auto='.2s')
+        fig_day.update_traces(textposition='outside')
+        fig_day.update_layout(title_x=0.5, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                              coloraxis_showscale=False, xaxis_title="", yaxis_title="Số đơn hàng",
+                              title_font_size=18)
+        st.plotly_chart(fig_day, use_container_width=True)
+    else:
+        st.info(f"ℹ️ Thiếu dữ liệu '{day_col}'.")
 
 
 # --- Tab: Phân tích chi tiết ---
